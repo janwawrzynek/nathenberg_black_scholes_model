@@ -3,6 +3,7 @@
 import math
 import numpy as np
 from scipy.stats import norm
+import matplotlib.pyplot as plt
 '''
  My goal is to implement the Black-Scholes model for:
  1) Options for a non-dividend paying stock
@@ -53,6 +54,7 @@ S is then replaced by S- sum D_i e ^(-r * t_d) where t_d is the time to expirati
 
 # Now I will define the Greeks, vega and gamma
 def delta_call(S, b, r, t, X, sigma):
+    '''Delta is the rate of change of the option price with respect to the underlying asset price.'''
     d1_value = d1(S, X, t, b, sigma)
     return math.exp((b - r) * t) * norm.cdf(d1_value)
 
@@ -61,15 +63,18 @@ def delta_put(S, b, r, t, X, sigma):
     return math.exp((b - r) * t) * (norm.cdf(d1_value) - 1.0)
 
 def gamma(S, b, r, t, X, sigma):
+    '''Gamma is the rate of change of delta with respect to the underlying asset price.'''
     d1_value = d1(S, X, t, b, sigma)
     return math.exp((b - r) * t) * norm.pdf(d1_value) / (S * sigma * math.sqrt(t))
 
 def vega(S, b, r, t, X, sigma):
+    '''Vega is the rate of change of the option price with respect to volatility.'''
     d1_value = d1(S, X, t, b, sigma)
     # per 1 vol point (1%) → divide by 100
     return (S * math.exp((b - r) * t) * norm.pdf(d1_value) * math.sqrt(t)) / 100.0
 
 def theta_call(S, b, r, t, X, sigma):
+    '''Theta is the rate of change of the option price with respect to time.'''
     d1_value = d1(S, X, t, b, sigma)
     d2_value = d2(d1_value, sigma, t)
     yearly = (-(S * math.exp((b - r) * t) * norm.pdf(d1_value) * sigma) / (2 * math.sqrt(t))
@@ -86,6 +91,7 @@ def theta_put(S, b, r, t, X, sigma):
     return yearly / 365.0  # per day
 
 def rho_call(S, b, r, t, X, sigma):
+    """Rho is the rate of change of the option price with respect to interest rate."""
     # Special futures-style case when b == 0 (Natenberg): rho = -t * price
     C = european_call(S, b, r, t, X, sigma)
     if b == 0:
@@ -126,6 +132,28 @@ def greeks_put(S, b, r, t, X, sigma):
     }
     return {k: float(v) for k, v in d.items()}
 
+t_range = np.linspace(1, 1/365, 365)  # time to expiration in years , going to explore the price from an expiry 1 year away, down to 1 day away.
+C_time_list = []
+P_time_list = []
+
+for times in t_range:
+
+    S = 100.0; X = 100.0; r = 0.05; sigma = 0.20
+    b = r  # Black–Scholes (non-dividend). For Black (futures) use b=0; for FX use b=r-rf.
+
+    C_value = european_call(S, b, r, times, X, sigma)
+    C_time_list.append(C_value)
+    P_value = european_put(S, b, r, times, X, sigma)
+    P_time_list.append(P_value)
+
+plt.plot(t_range, C_time_list, label='Call Value')
+plt.plot(t_range, P_time_list, label='Put Value')
+plt.xlabel('Time to Expiration (Years)', fontsize=20)
+plt.ylabel('Option Value', fontsize=20)
+plt.title('European Call and Put Option Values as a function of Time to Expiration', fontsize=20)
+plt.legend(prop = {'size': 20})
+plt.show()
+
 # ---------- example ----------
 if __name__ == "__main__":
     S = 100.0; X = 100.0; t = 1.0; r = 0.05; sigma = 0.20
@@ -136,7 +164,7 @@ if __name__ == "__main__":
     Gc = greeks_call(S, b, r, t, X, sigma)
     Gp = greeks_put(S, b, r, t, X, sigma)
 
-    print(f"Call: {C:.4f}  Put: {P:.4f}")
+    print(f"Call Value: {C:.4f}  Put Value: {P:.4f}")
     print("Call Greeks:", Gc)
     print("Put  Greeks:", Gp)
 
@@ -144,5 +172,8 @@ if __name__ == "__main__":
     lhs = C - P
     rhs = S * math.exp((b - r) * t) - X * math.exp(-r * t)
     assert abs(lhs - rhs) < 1e-10, "Put–Call parity failed"
+
+
+  
 
     
